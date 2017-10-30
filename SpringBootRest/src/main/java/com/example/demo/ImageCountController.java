@@ -1,7 +1,13 @@
 package com.example.demo;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -29,6 +35,9 @@ public class ImageCountController {
 
 	private final AtomicLong counter = new AtomicLong();
 	
+	@Autowired
+	ImageService imageService;
+	
 	//private ResultStoreMap resultMap;
 	
 	   private static final String template = "Hello, %s!";
@@ -48,7 +57,9 @@ public class ImageCountController {
         long jobId=counter.incrementAndGet();
         String resultLocation="/api/imageCount/"+jobId;
         ResultStoreMap.addInitialEntry(jobId, imageUrl);
-        executor.execute(getTask(jobId));
+        
+        
+        processImages(jobId);
         headers.setLocation(ucBuilder.path("/api/imageCount/{id}").buildAndExpand(jobId).toUri());
         return new ResponseEntity<String>(headers, HttpStatus.ACCEPTED);
     }
@@ -76,10 +87,61 @@ public class ImageCountController {
                             String.format(template, name));
     }
     
-    public Runnable getTask (long i) {
-        return () -> {
-        	logger.info("job id::"+i+"thhread name"+                             Thread.currentThread().getName());
-       };
+   public void processImages(long jobId) {
+	   
+	   ImageUrlResponse response=ResultStoreMap.getJobStatus(jobId);
+	   List<ImageCount>  inputImages=response.getImageCount();
+	   
+	   List<ImageCount> listCount=new ArrayList<ImageCount>();
+		System.out.println("size"+listCount.size());
+		for(ImageCount image:inputImages) {
+			System.out.println("image is"+image);
+		 FutureTask futureTask = new FutureTask<Void>(new Callable<Void>() {
+            @Override
+            public Void call() {
+           	 System.out.println("job id::"+"thhread name"+                             Thread.currentThread().getName());
+           	 ImageCount count=imageService.numberOfImages(image, jobId);
+            	//	int count1=imageService.numberOfImages("https://www.sakshi.com/", 10);
+            		//int count2=imageService.numberOfImages("https://www.greatandhra.com/", 10);
+           	 listCount.add(count);
+           
+                return null;
+            }
+        });
+
+		executor.execute(futureTask);
+		try{
+			futureTask.get(1, TimeUnit.SECONDS);
+			//executor.wait();
+		} 
+		catch (InterruptedException e){
+		    e.printStackTrace();
+		} catch (ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (TimeoutException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	
+		
+		}
+		
+		retriveResult(listCount);
+	   
+   }
+   
+   private void retriveResult( List<ImageCount> listCount) {
+   	
+   	
+   	for(ImageCount image:listCount) {
+   		
+   		System.out.println("image url in test:::"+image.getImageUrl());
+   		System.out.println("image count in test:::"+image.getCount());
+   	}
+   	
+   	
    }
 
 }

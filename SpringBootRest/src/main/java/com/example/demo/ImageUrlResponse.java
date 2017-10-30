@@ -19,8 +19,7 @@ public class ImageUrlResponse {
 		this.imageCount = imageCount;
 	}
 	
-	
-	
+
 	
 	
 
